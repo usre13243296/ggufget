@@ -90,7 +90,7 @@ Commands:
 	def("flag.nolmstudio", "直接放进目标目录，不建任何子目录", "drop the file in the target dir, no subdirs")
 	def("flag.layout", "目录布局：lmstudio（默认）|repo|flat", "layout: lmstudio (default) | repo | flat")
 	def("flag.sha256", "手工指定期望的 SHA256", "expected SHA256")
-	def("flag.any", "列出所有文件（默认只看 .gguf）", "list every file (default: only .gguf)")
+	def("flag.any", "包含非 gguf 文件（默认只看 .gguf）", "include non-gguf files (default: only .gguf)")
 	def("flag.filter", "关键词过滤", "keyword filter")
 	def("flag.sort", "name|size|quant", "name|size|quant")
 	def("flag.limit", "最多显示几条", "maximum rows")
@@ -140,6 +140,8 @@ Commands:
 		"%s and %s would land in the same path; download them separately.")
 	def("err.selectNoMatch", "没有匹配 %q 的文件。", "no file matches %q.")
 	def("err.selectAmbiguous", "%q 匹配到 %d 个文件，请写具体些：", "%q matches %d files, please be more specific:")
+	def("err.indexRange", "序号 %s 超出范围（当前视图共 %d 个文件）。",
+		"index %s is out of range (the current view has %d files).")
 	def("err.selectHint",
 		"提示：可以填列表序号（2、1,3、1-3），也可以填关键词（q4_k_m）；先运行 ggufget list <仓库> 看全部文件。",
 		"hint: use a list index (2, 1,3, 1-3) or a keyword (q4_k_m); run ggufget list <repo> to see every file.")
@@ -204,7 +206,7 @@ Commands:
 	def("doc.lms", "LM Studio", "LM Studio")
 	def("doc.proxy", "代理", "proxy")
 	def("doc.proxyNone", "未设置", "not set")
-	def("doc.test", "测速（下载 8 MiB）", "speed test (8 MiB)")
+	def("doc.test", "测速（下载 4 MiB）", "speed test (4 MiB)")
 	def("doc.recommend", "建议用 %s（%.1f MiB/s）", "recommended: %s (%.1f MiB/s)")
 	def("doc.noMirror", "所有镜像都连不上。检查网络或代理。", "no mirror reachable; check network or proxy.")
 	def("doc.ok", "正常", "ok")
@@ -283,9 +285,11 @@ Commands:
 	def("help.ex.get", `  ggufget get owner/repo -f 2
   ggufget get owner/repo -f q4_k_m -y
   ggufget get owner/repo --all -j 2
+  ggufget get owner/repo --sort size -f 1
   ggufget get owner/repo -f 1 --dry-run`, `  ggufget get owner/repo -f 2
   ggufget get owner/repo -f q4_k_m -y
   ggufget get owner/repo --all -j 2
+  ggufget get owner/repo --sort size -f 1
   ggufget get owner/repo -f 1 --dry-run`)
 	def("help.ex.info", `  ggufget info owner/repo
   ggufget info https://huggingface.co/owner/repo`, `  ggufget info owner/repo

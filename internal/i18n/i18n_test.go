@@ -110,3 +110,16 @@ func TestFallbackToEnglish(t *testing.T) {
 		t.Errorf("unknown key = %q, want the key itself", got)
 	}
 }
+
+// TestDoctorSampleSizeMatchesCode keeps the speed-test caption in step with
+// doctor's 4 MiB probe (probeBytes in internal/app/doctor.go).
+func TestDoctorSampleSizeMatchesCode(t *testing.T) {
+	defer Set(string(Zh))
+	for _, l := range Langs() {
+		Set(string(l))
+		got := T("doc.test")
+		if !strings.Contains(got, "4 MiB") || strings.Contains(got, "8 MiB") {
+			t.Errorf("%s doc.test = %q, want the 4 MiB sample", l, got)
+		}
+	}
+}

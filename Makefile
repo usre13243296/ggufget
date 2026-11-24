@@ -1,8 +1,12 @@
 # ggufget — build and release helpers.
 #
 # The version lives in internal/netx (Version const); keep VERSION in sync.
-VERSION ?= 1.2.1
+VERSION ?= 1.2.2
 BIN     := ggufget
+BIN_EXT :=
+ifeq ($(OS),Windows_NT)
+BIN_EXT := .exe
+endif
 DIST    := dist
 GOFLAGS := -trimpath
 LDFLAGS := -s -w
@@ -25,7 +29,7 @@ help:
 	@echo "make clean     - remove $(DIST) and test leftovers"
 
 build:
-	go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(DIST)/$(BIN) ./cmd/ggufget
+	go build $(GOFLAGS) -ldflags "$(LDFLAGS)" -o $(DIST)/$(BIN)$(BIN_EXT) ./cmd/ggufget
 
 test:
 	go test $(PKGS)

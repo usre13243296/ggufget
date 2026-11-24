@@ -14,7 +14,7 @@ ggufget 的文档分三层：**README 负责让人愿意试，MANUAL 负责把�
 
 | 文档 | 内容 |
 | --- | --- |
-| [SPEC.md](../SPEC.md) | 命令行契约：命令面、选项、退出码、目录布局、下载引擎、JSON 事件。**行为的唯一来源**，并附「已知实现差异」 |
+| [SPEC.md](../SPEC.md) | 命令行契约：命令面、选项、退出码、目录布局、下载引擎、JSON 事件。**行为的唯一来源** |
 | [design-principles.md](design-principles.md) | 一个好用的命令行工具应该具备什么：14 条原则与反例 |
 | [verify.md](verify.md) | 下载状态机、`.part` / `.part.seg`、续传依据、校验分级、并发与限流 |
 | [bench.md](bench.md) | 三种镜像的测速方法、原始数据、注意事项与端到端验证 |

@@ -73,4 +73,7 @@ func RegisterUI() {
 	def("help.docs", "文档", "Documentation")
 	def("help.docsWhere", "仓库根目录的 README.md 与 MANUAL.md（英文版 MANUAL.en.md）。",
 		"README.md and MANUAL.md at the repository root (English: MANUAL.en.md).")
+	def("help.getIndexRule",
+		"序号按与 list 相同的视图解释：默认只算 .gguf、按文件名排序；给 get 也传 --any/--filter/--sort/--limit 时，按该视图编号。",
+		"Indexes use the same view as list: .gguf only, sorted by name, unless get is given --any/--filter/--sort/--limit, in which case that view is used.")
 }

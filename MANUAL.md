@@ -54,7 +54,7 @@ cd ggufget
 make build
 ```
 
-Windows 上产物是 `dist/ggufget`（不带 `.exe`），需要的话自行重命名；要六平台发行包用 `make dist`。
+Windows 上产物是 `dist/ggufget.exe`；要六平台发行包用 `make dist`。
 
 升级就重跑一次安装器（同版本会跳过，`-Force` 可强制重装）。
 
@@ -65,7 +65,7 @@ Windows 上产物是 `dist/ggufget`（不带 `.exe`），需要的话自行重�
 不带参数运行 `ggufget`（或双击 exe）就进入交互式界面。启动时先打印状态：
 
 ```text
-ggufget 1.2.1
+ggufget 1.2.2
 模型目录  C:\Users\you\.lmstudio\models
 镜像      modelscope 8.1 MiB/s  ·  hf-mirror 0.7 MiB/s
 [1] 下载模型   [2] 搜索仓库   [3] 测速   [4] 设置   [h] 帮助   [q] 退出
@@ -157,9 +157,13 @@ ggufget list lmstudio-community/Qwen2.5-7B-Instruct-GGUF
 - 完整文件名：`-f Qwen2.5-7B-Instruct-Q4_K_M.gguf`
 - 全下：`-a`
 
-**序号规则（重要）**：`-f` 的序号按**默认视图**解释——只算 `.gguf`、按文件名排序。`list` 的 `--any` / `--filter` / `--sort` / `--limit` 只改变显示，不改变 `-f` 的解释。如果你看的是过滤或排序后的列表，请改用关键词或完整文件名，别用序号。
+**序号规则**：`-f` 的序号按**视图**解释——默认只算 `.gguf`、按文件名排序；如果 `get` 也传了 `--any` / `--filter` / `--sort` / `--limit`，就按同一视图编号。只给 `list` 传视图参数、`get` 不传时，两边视图不同，序号不能直接搬。关键词与完整文件名不受视图限制，会在整个仓库里匹配（非 gguf 文件也能用完整文件名指定）。
 
-片段匹配不分大小写；一个片段命中多个文件时不会瞎猜，而是把候选列出来让你写具体些。`ggufget list --filter q4 --sort size` 可以先缩小清单再选，但选的时候请用关键词或完整文件名。
+片段匹配不分大小写；一个片段命中多个文件时不会瞎猜，而是把候选列出来让你写具体些。`ggufget list --filter q4 --sort size` 可以先缩小清单，选的时候给 `get` 传同样的参数，序号就能对上：
+
+```sh
+ggufget get owner/repo --filter q4 --sort size -f 1
+```
 
 输入会自动清理：去掉首尾空格与引号（含中文引号）、剥掉 `--file=` / `-f ` / `文件名:` 之类前缀、`\` 归一为 `/`。
 
@@ -186,6 +190,7 @@ ggufget get owner/repo -f 2
 | `--retries` | 失败重试次数（默认 3） |
 | `--token` | 访问令牌（也可用 `HF_TOKEN`） |
 | `--json` | NDJSON 事件流，适合脚本 |
+| `--any` / `--filter` / `--sort` / `--limit` | 与 `list` 相同的视图选项，同时决定 `-f` 序号 |
 | `--sha256` | 手工指定期望的 SHA256（只能配单个文件） |
 
 下载逻辑：
@@ -250,7 +255,7 @@ ggufget get owner/repo -f 1 --log-level debug   # error|warn|info|debug，默认
 ggufget get owner/repo -f 1 --no-log            # 这次不写
 ```
 
-也可以用环境变量 `GGUFGET_LOG`、`GGUFGET_LOG_LEVEL`，或配置里的 `log_level`（`log` 路径字段当前未生效，见 SPEC §15）。`--verbose` 会把级别临时抬到 `debug`。
+也可以用环境变量 `GGUFGET_LOG`、`GGUFGET_LOG_LEVEL`，或配置里的 `log` / `log_level`。`--verbose` 会把级别临时抬到 `debug`。
 
 写不进程序目录时（只读介质、装在 `Program Files` 又没权限），会自动退到用户缓存目录（Windows `%LOCALAPPDATA%\ggufget\logs\`，Linux `~/.cache/ggufget/logs/`），再退到临时目录；三处都写不成时不阻断运行，只在终端告诉你哪几处失败了。
 

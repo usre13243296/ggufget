@@ -71,7 +71,7 @@ root 或 `/usr/local/bin` 可写时装到 `/usr/local/bin`，否则装到 `~/.lo
 
 ### 手动
 
-从 [Releases](https://github.com/usre13243296/ggufget/releases) 下载对应平台的单文件，Linux/macOS 先 `chmod +x`，再丢进 PATH。资产名格式：`ggufget_1.2.1_windows_amd64.exe`、`ggufget_1.2.1_linux_arm64`……
+从 [Releases](https://github.com/usre13243296/ggufget/releases) 下载对应平台的单文件，Linux/macOS 先 `chmod +x`，再丢进 PATH。资产名格式：`ggufget_1.2.2_windows_amd64.exe`、`ggufget_1.2.2_linux_arm64`……
 
 ### 从源码
 
@@ -80,7 +80,7 @@ root 或 `/usr/local/bin` 可写时装到 `/usr/local/bin`，否则装到 `~/.lo
 ```sh
 git clone https://github.com/usre13243296/ggufget
 cd ggufget
-make build     # 产出 dist/ggufget（Windows 上不会自动加 .exe，可自行重命名）
+make build     # 产出 dist/ggufget（Windows 上是 dist/ggufget.exe）
 make dist      # 交叉编译六个平台 + 生成 dist/SHA256SUMS
 ```
 
@@ -88,7 +88,7 @@ Windows 上没装 `make`、想直接产出六平台发行包时，下面这段�
 
 ```powershell
 $env:CGO_ENABLED = "0"
-$v = "1.2.1"
+$v = "1.2.2"
 foreach ($t in @("windows/amd64","windows/arm64","linux/amd64","linux/arm64","darwin/amd64","darwin/arm64")) {
     $os, $arch = $t -split "/"
     $env:GOOS = $os; $env:GOARCH = $arch
@@ -117,13 +117,14 @@ ggufget get  owner/repo -f 2 # 下载默认视图里的第 2 个文件
 4     Qwen2.5-7B-Instruct-Q8_0.gguf          7.54 GiB  Q8_0
 ```
 
-> **序号规则（重要）**：`-f` 的序号按**默认视图**解释——只算 `.gguf`、按文件名排序。`list` 的 `--any` / `--filter` / `--sort` / `--limit` 只改变显示，不改变 `-f` 的解释。如果你看的是过滤或排序后的列表，请改用关键词或完整文件名，别用序号；完整文件名仍可匹配任意文件。
+> **序号规则**：`-f` 的序号按**视图**解释——默认只算 `.gguf`、按文件名排序；如果 `get` 也传了 `--any` / `--filter` / `--sort` / `--limit`，就按同一视图编号（与 `list` 用同样参数时，序号一一对应）。只给 `list` 传视图参数、`get` 不传时，两边视图不同，序号不能直接搬。关键词和完整文件名不受视图限制，会在整个仓库里匹配（所以非 gguf 文件也能用完整文件名指定）。
 
 ```sh
 ggufget get owner/repo -f 2             # 默认视图的序号
 ggufget get owner/repo -f q4_k_m        # 关键词（唯一命中才算数，歧义会列出候选）
 ggufget get owner/repo -f 1,3           # 多个
 ggufget get owner/repo -f 1-3           # 区间
+ggufget get owner/repo --sort size -f 1 # 与 list --sort size 的序号对齐
 ggufget get owner/repo --all -j 2       # 全部，两个文件并行
 ggufget get owner/repo -f 2 --dry-run   # 只看计划，不下载
 ```
@@ -143,7 +144,7 @@ https://www.modelscope.cn/models/owner/repo
 | 命令 | 作用 |
 | --- | --- |
 | `list <仓库>` | 列出文件；`--any` 连非 gguf 一起列，`--filter`、`--sort`、`--limit` 只影响显示 |
-| `get <仓库>` | 下载；`-f` 选文件，`-a` 全下，`--dry-run` 只出计划 |
+| `get <仓库>` | 下载；`-f` 选文件，`-a` 全下，`--dry-run` 只出计划；`--any/--filter/--sort/--limit` 与 `list` 同视图 |
 | `info <仓库>` | commit、许可、是否 gated、总大小与量化分布 |
 | `search <关键词>` | 搜索仓库（只走 Hugging Face 搜索接口） |
 | `doctor` | 环境自检 + 镜像测速排名 |
@@ -164,6 +165,7 @@ https://www.modelscope.cn/models/owner/repo
 | `--proxy <URL>` | 走代理（也认 `HTTPS_PROXY` / `HTTP_PROXY`） |
 | `--json` | NDJSON 事件流，每行一个 JSON |
 | `--lang <zh\|en\|fr\|es\|ru>` | 界面语言 |
+| `--any` / `--filter` / `--sort` / `--limit` | 与 `list` 相同的视图选项；同时决定 `-f` 序号的视图 |
 
 完整选项：`ggufget help get`。长文说明书：[MANUAL.md](MANUAL.md)。
 
@@ -303,7 +305,7 @@ make build     # 本机构建到 dist/
 make dist      # 六平台交叉编译 + dist/SHA256SUMS
 ```
 
-打标签即发布：`git tag v1.2.1 && git push origin v1.2.1` 会触发 GitHub Actions，自动跑测试、交叉编译六个平台、校验产物并创建 Release。安装脚本里的仓库地址默认是 `usre13243296/ggufget`；fork 后要发自己的版本，改 `install/install.ps1` 的 `-Repo` 和 `install/install.sh` 的 `REPO`。
+打标签即发布：`git tag v1.2.2 && git push origin v1.2.2` 会触发 GitHub Actions，自动跑测试、交叉编译六个平台、校验产物并创建 Release。安装脚本里的仓库地址默认是 `usre13243296/ggufget`；fork 后要发自己的版本，改 `install/install.ps1` 的 `-Repo` 和 `install/install.sh` 的 `REPO`。
 
 本地发也可以：`make dist` 后把 `dist/` 里的六个二进制和 `SHA256SUMS` 一起上传到 Release。资产名必须保持 `ggufget_<版本>_<系统>_<架构>[.exe]`，安装脚本按这个规则拼 URL。
 

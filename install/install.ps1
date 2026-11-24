@@ -12,7 +12,7 @@
     everything lands under %LOCALAPPDATA%.
 
 .PARAMETER Version
-    Release version to install, without the leading "v". Default 1.2.1.
+    Release version to install, without the leading "v". Default 1.2.2.
 
 .PARAMETER Repo
     GitHub repository that publishes the releases ("owner/name").
@@ -30,11 +30,11 @@
     irm https://raw.githubusercontent.com/usre13243296/ggufget/main/install/install.ps1 | iex
 
 .EXAMPLE
-    .\install.ps1 -Version 1.2.1 -InstallDir D:\tools\ggufget
+    .\install.ps1 -Version 1.2.2 -InstallDir D:\tools\ggufget
 #>
 [CmdletBinding()]
 param(
-    [string]$Version = "1.2.1",
+    [string]$Version = "1.2.2",
     [string]$Repo = "usre13243296/ggufget",
     [string]$InstallDir = "",
     [switch]$NoPath,

@@ -13,7 +13,7 @@ import (
 )
 
 // Version is stamped into the User-Agent.
-const Version = "1.2.1"
+const Version = "1.2.2"
 
 // UserAgent identifies the tool to mirrors that rate-limit per client.
 const UserAgent = "ggufget/" + Version

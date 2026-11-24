@@ -199,10 +199,7 @@ func Run(args []string) int {
 // never fatal: the command still runs, and every rejected path is reported so
 // "why is there no log" has an answer.
 func (a *App) openLog(p *cli.Parsed, cfg *config.Config) {
-	path := p.Str("log")
-	if path == "" {
-		path = os.Getenv("GGUFGET_LOG")
-	}
+	path := pickLogPath(p.Str("log"), os.Getenv("GGUFGET_LOG"), cfg.Log)
 	levelName := p.Str("log-level")
 	if levelName == "" {
 		levelName = os.Getenv("GGUFGET_LOG_LEVEL")
@@ -228,6 +225,18 @@ func (a *App) openLog(p *cli.Parsed, cfg *config.Config) {
 			fmt.Fprintf(a.ErrOut, "%s\n", a.St.Dim(i18n.T("err.logDisabled", at.Path, shortText(at.Err.Error()))))
 		}
 	}
+}
+
+// pickLogPath applies the documented log destination precedence: --log, then
+// GGUFGET_LOG, then the config file's log field. Empty means "use the default
+// candidate chain next to the binary".
+func pickLogPath(flagPath, envPath, cfgPath string) string {
+	for _, p := range []string{flagPath, envPath, cfgPath} {
+		if v := strings.TrimSpace(p); v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // resolveConfigPath decides which config file to use: an explicit --config,

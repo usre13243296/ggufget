@@ -54,6 +54,19 @@ func TestClean(t *testing.T) {
 	}
 }
 
+func TestIsIndexExpr(t *testing.T) {
+	for _, q := range []string{"2", "1,3", "1-3", " 2 , 4 ", "3-1"} {
+		if !IsIndexExpr(q) {
+			t.Errorf("IsIndexExpr(%q) = false, want true", q)
+		}
+	}
+	for _, q := range []string{"", "  ", "q4", "Qwen2.5-7B", "1.5", "a1", "-f 2"} {
+		if IsIndexExpr(q) {
+			t.Errorf("IsIndexExpr(%q) = true, want false", q)
+		}
+	}
+}
+
 func TestResolve(t *testing.T) {
 	files := []string{
 		"model-Q4_K_M.gguf",

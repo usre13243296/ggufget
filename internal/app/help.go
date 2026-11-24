@@ -74,6 +74,9 @@ func (a *App) printCommandHelp(cmd string) {
 	fmt.Fprintf(a.Out, "%s\n\n", i18n.T("cmd."+cmd))
 	fmt.Fprintf(a.Out, "%s\n", a.St.Bold(i18n.T("help.options")))
 	a.printFlagTable(commandDefs(cmd))
+	if cmd == "get" {
+		fmt.Fprintf(a.Out, "\n%s\n", i18n.T("help.getIndexRule"))
+	}
 	if ex := i18n.T("help.ex." + cmd); ex != "" && !strings.HasPrefix(ex, "help.") {
 		fmt.Fprintf(a.Out, "\n%s\n%s\n", a.St.Bold(i18n.T("help.examples")), ex)
 	}
@@ -161,6 +164,7 @@ func commandDefs(cmd string) []cli.Def {
 		out = append(out, listDefs...)
 	case "get":
 		out = append(out, getDefs...)
+		out = append(out, listDefs...)
 	case "config":
 		out = append(out, configDefs()...)
 	}

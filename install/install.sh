@@ -2,13 +2,13 @@
 # Download the ggufget single-file binary, verify its SHA256 and put it on PATH.
 #
 #   sh install.sh                 # latest known version, best install dir
-#   VERSION=1.2.1 sh install.sh   # pin a version
+#   VERSION=1.2.2 sh install.sh   # pin a version
 #   PREFIX=$HOME/.local sh install.sh
 #
 # This script only installs. All model logic lives in the binary.
 set -eu
 
-VERSION="${VERSION:-1.2.1}"
+VERSION="${VERSION:-1.2.2}"
 REPO="${REPO:-usre13243296/ggufget}"
 PREFIX="${PREFIX:-}"
 

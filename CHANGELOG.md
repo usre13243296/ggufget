@@ -4,20 +4,47 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.2.2] - 2026-11-24
+
+A documentation and behaviour-alignment release: `get` now shares `list`'s view
+for `-f` indexes, an out-of-range index or a non-gguf filename behaves as
+documented, the config file's `log` path is honoured, and `doctor` says the
+4 MiB it actually samples.
+
+### Added
+
+- `get` accepts `--any`, `--filter`, `--sort` and `--limit` as its index view.
+  Passing the same options to `list` and `get` makes the numbered rows line up;
+  `ggufget help get` prints the rule.
+- A full non-gguf filename works with `-f` even without `--any`; filenames and
+  keywords are matched against the whole repository.
+- `err.indexRange`: an out-of-range index reports the current view's file count
+  instead of falling through to a keyword or a position in the full file list.
+- `ggufget help get` shows the view options and the index rule, with an example
+  of `get --sort size -f 1`.
+
+### Fixed
+
+- `-f` no longer ignores the view options (`--any` / `--filter` / `--sort` /
+  `--limit`).
+- Index expressions are resolved against the selected view only; an out-of-range
+  number can no longer select an unrelated non-gguf file.
+- The config file's `log` path is now used, after `--log` and `GGUFGET_LOG`.
+- `ggufget doctor` prints "4 MiB", matching the sample size; the French, Spanish
+  and Russian strings are updated too.
+- `make build` appends `.exe` on Windows (`dist/ggufget.exe`).
 
 ### Docs
 
 - README rewritten as a quick start: badges, table of contents, architecture
-  sketch, accurate mirror-selection wording, and an explicit warning that `-f`
-  indexes always follow the default view.
+  sketch, accurate mirror-selection wording, the shared `-f` index view and
+  exit code 1.
 - MANUAL.md and MANUAL.en.md restructured with tables of contents, English
   anchor prefixes removed, and corrections for the 4 MiB doctor sample, the 15 s
   idle timeout, the disk precheck, proxy setup and antivirus guidance.
-- SPEC.md updated to 1.2.1 and aligned with the implementation (disk precheck
-  `total - have + 64 MiB`, 416 and ignored-Range semantics, JSON event names,
-  log path precedence); a "known implementation gaps" section records the three
-  remaining code/documentation differences.
+- SPEC.md updated to 1.2.2: the `-f` view rule, out-of-range index behaviour,
+  the disk precheck `total - have + 64 MiB`, 416 and ignored-Range semantics,
+  JSON event names and log path precedence.
 - docs/verify.md corrected (journal version check, size-mismatch behaviour,
   15 s idle timeout, segmentation condition); docs/bench.md gained a measurement
   date, unit notes and the 4 MiB sample; docs/design-principles.md now lists all

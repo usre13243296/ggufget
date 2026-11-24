@@ -45,22 +45,31 @@ func (a *App) cmdList(ctx context.Context, rest []string) error {
 	if err != nil {
 		return err
 	}
-	sortMode, ok := provider.ParseSort(a.P.StrOr("sort", "name"))
-	if !ok {
-		return cli.Badf("--sort %s", a.P.Str("sort"))
+	view, err := a.listView()
+	if err != nil {
+		return err
 	}
 	p, meta, files, err := a.fetchListing(ctx, repo, a.P.Str("rev"))
 	if err != nil {
 		return err
 	}
-	view := buildView(files, viewOpts{
+	a.printList(repo, p, meta, files, buildView(files, view))
+	return nil
+}
+
+// listView reads the shared --any/--filter/--sort/--limit options. Both list
+// and get use it, so an index means the same file in both commands.
+func (a *App) listView() (viewOpts, error) {
+	sortMode, ok := provider.ParseSort(a.P.StrOr("sort", "name"))
+	if !ok {
+		return viewOpts{}, cli.Badf("--sort %s", a.P.Str("sort"))
+	}
+	return viewOpts{
 		any:    a.P.Bool("any"),
 		filter: a.P.Str("filter"),
 		sort:   sortMode,
 		limit:  a.P.IntOr("limit", 0),
-	})
-	a.printList(repo, p, meta, files, view)
-	return nil
+	}, nil
 }
 
 func (a *App) printList(repo string, p provider.Provider, meta *provider.Meta, all, view []provider.File) {
@@ -176,62 +185,70 @@ func truncateW(s string, w int) string {
 	return string(runes)
 }
 
-// resolveSelection turns -f values into files of the repo. Queries are matched
-// against the default view first (that is what the numbers refer to) and then
-// against the full file list, so an explicit non-gguf filename still works.
-func (a *App) resolveSelection(repo string, files []provider.File, queries []string) ([]provider.File, error) {
-	view := buildView(files, viewOpts{sort: provider.SortName})
-	paths := make([]string, len(view))
-	for i, f := range view {
-		paths[i] = f.Path
+// resolveSelection turns -f values into repository files.
+//
+// Index expressions are interpreted in the same view `list` shows, so
+// `get --sort size -f 2` selects the second row of `list --sort size`.
+// Filenames and keywords are matched against the whole repository, so a
+// non-gguf file can be named exactly without --any. An out-of-range index is an
+// error: it must never fall back to a position in the full file list.
+func (a *App) resolveSelection(files []provider.File, queries []string, view viewOpts) ([]provider.File, error) {
+	viewFiles := buildView(files, view)
+	allPaths := make([]string, len(files))
+	for i, f := range files {
+		allPaths[i] = f.Path
 	}
-	hits, misses := pick.Resolve(paths, queries)
-	chosen := make([]provider.File, 0, len(hits))
+
+	chosen := make([]provider.File, 0, len(queries))
 	seen := map[string]bool{}
-	for _, h := range hits {
-		f := view[h.Index]
-		if h.How == pick.HowIndex {
-			fmt.Fprintln(a.ErrOut, a.St.Dim(i18n.T("sel.index", h.Query, f.Path)))
-		} else {
-			fmt.Fprintln(a.ErrOut, a.St.Dim(i18n.T("sel.fuzzy", h.Query, f.Path)))
+	add := func(f provider.File) {
+		if seen[f.Path] {
+			return
 		}
-		if !seen[f.Path] {
-			seen[f.Path] = true
-			chosen = append(chosen, f)
-		}
+		seen[f.Path] = true
+		chosen = append(chosen, f)
 	}
-	if len(misses) > 0 {
-		// second chance: match the query against every file in the repo
-		all := make([]string, len(files))
-		for i, f := range files {
-			all[i] = f.Path
+	var problems []string
+
+	for _, raw := range queries {
+		q := pick.Clean(raw)
+		if q == "" {
+			continue
 		}
-		for _, m := range misses {
-			idx, ok := pick.Indices(m.Query, len(all))
-			if !ok || len(idx) != 1 {
+		if pick.IsIndexExpr(q) {
+			idxs, ok := pick.Indices(q, len(viewFiles))
+			if !ok {
+				problems = append(problems, i18n.T("err.indexRange", raw, len(viewFiles)))
 				continue
 			}
-			f := files[idx[0]]
-			if !seen[f.Path] {
-				seen[f.Path] = true
-				chosen = append(chosen, f)
+			for _, k := range idxs {
+				f := viewFiles[k-1]
+				fmt.Fprintln(a.ErrOut, a.St.Dim(i18n.T("sel.index", raw, f.Path)))
+				add(f)
 			}
+			continue
 		}
-	}
-	var fs []string
-	for _, m := range misses {
-		if len(m.Candidates) > 0 {
-			fs = append(fs, i18n.T("err.selectAmbiguous", m.Query, len(m.Candidates)))
-			for _, i := range m.Candidates {
-				fs = append(fs, fmt.Sprintf("    %s", paths[i]))
+
+		hits, misses := pick.Resolve(allPaths, []string{q})
+		if len(hits) == 1 {
+			f := files[hits[0].Index]
+			fmt.Fprintln(a.ErrOut, a.St.Dim(i18n.T("sel.fuzzy", raw, f.Path)))
+			add(f)
+			continue
+		}
+		if len(misses) > 0 && len(misses[0].Candidates) > 0 {
+			problems = append(problems, i18n.T("err.selectAmbiguous", raw, len(misses[0].Candidates)))
+			for _, ci := range misses[0].Candidates {
+				problems = append(problems, fmt.Sprintf("    %s", allPaths[ci]))
 			}
-		} else {
-			fs = append(fs, i18n.T("err.selectNoMatch", m.Query))
+			continue
 		}
+		problems = append(problems, i18n.T("err.selectNoMatch", raw))
 	}
-	if len(fs) > 0 {
-		fs = append(fs, i18n.T("err.selectHint"))
-		return chosen, cli.Badf("%s", strings.Join(fs, "\n"))
+
+	if len(problems) > 0 {
+		problems = append(problems, i18n.T("err.selectHint"))
+		return chosen, cli.Badf("%s", strings.Join(problems, "\n"))
 	}
 	return chosen, nil
 }

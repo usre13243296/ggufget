@@ -54,7 +54,7 @@ cd ggufget
 make build
 ```
 
-On Windows the output is `dist/ggufget` without an extension; rename it if you need `ggufget.exe`, or use `make dist` for the six-platform release set.
+On Windows the output is `dist/ggufget.exe`; use `make dist` for the six-platform release set.
 
 Re-run the installer to upgrade (the same version is skipped, `-Force` reinstalls).
 
@@ -65,7 +65,7 @@ Supported: Windows, Linux and macOS on amd64 and arm64, all single files with no
 Run `ggufget` with no arguments (or double-click the exe) to get the shell. It opens with a status block:
 
 ```text
-ggufget 1.2.1
+ggufget 1.2.2
 models dir  C:\Users\you\.lmstudio\models
 mirrors     modelscope 8.1 MiB/s  ·  hf-mirror 0.7 MiB/s
 [1] download   [2] search   [3] speed test   [4] settings   [h] help   [q] quit
@@ -149,9 +149,13 @@ idx  file                                    size        quant
 - a full filename
 - everything: `-a`
 
-**Index rule (important):** `-f` indexes refer to the **default view** — `.gguf` only, sorted by filename. `list`'s `--any` / `--filter` / `--sort` / `--limit` change the display only; they do not change how `-f` interprets an index. If you are looking at a filtered or sorted list, use a keyword or the full filename instead of an index. Full filenames still match any file.
+**Index rule:** `-f` indexes refer to the **view** — `.gguf` only, sorted by filename by default; if `get` also receives `--any` / `--filter` / `--sort` / `--limit`, that view is used. Passing view options to `list` but not to `get` gives two different views, so the numbers are not interchangeable. Keywords and full filenames are matched against the whole repository (a non-gguf file can be named exactly).
 
-Matching a fragment is case-insensitive. An ambiguous fragment never guesses: it prints the candidates and asks you to be more specific. You can narrow the list first with `ggufget list --filter q4 --sort size`, but select with a keyword or filename.
+Matching a fragment is case-insensitive. An ambiguous fragment never guesses: it prints the candidates and asks you to be more specific. To narrow the list first, pass the same view options to `get` so the numbers line up:
+
+```sh
+ggufget get owner/repo --filter q4 --sort size -f 1
+```
 
 Input is cleaned automatically: surrounding spaces and quotes (including Chinese quotes), prefixes such as `--file=` / `-f ` / `filename:`, and `\` become `/`.
 
@@ -178,6 +182,7 @@ ggufget prints a plan (mirror, commit, destination, sizes) and asks once. Useful
 | `--retries` | retry attempts (default 3) |
 | `--token` | access token (or `HF_TOKEN`) |
 | `--json` | NDJSON event stream for scripts |
+| `--any` / `--filter` / `--sort` / `--limit` | same view options as `list`; they also decide the `-f` index view |
 | `--sha256` | expected SHA256 by hand (single file only) |
 
 How it works:
@@ -232,7 +237,7 @@ ggufget get owner/repo -f 1 --log-level debug   # error|warn|info|debug, default
 ggufget get owner/repo -f 1 --no-log            # skip it once
 ```
 
-`GGUFGET_LOG` / `GGUFGET_LOG_LEVEL` and the `log_level` config key do the same (`log` as a path key is not wired up in 1.2.1, see SPEC §15). `--verbose` raises the level to `debug` for that run.
+`GGUFGET_LOG` / `GGUFGET_LOG_LEVEL` and the `log` / `log_level` config keys do the same. `--verbose` raises the level to `debug` for that run.
 
 If the program directory is not writable (read-only media, an install under `Program Files`), it falls back to the user cache (`%LOCALAPPDATA%\ggufget\logs\` on Windows, `~/.cache/ggufget/logs/` elsewhere) and then to the temp directory. If none of them works it keeps going and tells you which attempts failed.
 

@@ -39,6 +39,13 @@ func (a *App) cmdGet(ctx context.Context, rest []string) error {
 	if a.P.Bool("all") && a.P.Has("file") {
 		return cli.Badf("%s", i18n.T("err.fileAndAll"))
 	}
+	var view viewOpts
+	if !a.P.Bool("all") {
+		view, err = a.listView()
+		if err != nil {
+			return err
+		}
+	}
 	p, meta, files, err := a.fetchListing(ctx, repo, a.P.Str("rev"))
 	if err != nil {
 		return err
@@ -60,7 +67,7 @@ func (a *App) cmdGet(ctx context.Context, rest []string) error {
 		if len(qs) == 0 {
 			return cli.Badf("%s", i18n.T("err.needFile"))
 		}
-		chosen, err = a.resolveSelection(repo, files, qs)
+		chosen, err = a.resolveSelection(files, qs, view)
 		if err != nil {
 			return err
 		}

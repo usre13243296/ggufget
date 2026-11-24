@@ -60,6 +60,23 @@ func Clean(s string) string {
 	return strings.TrimSpace(s)
 }
 
+// IsIndexExpr reports whether q was meant as an index expression: digits,
+// commas, dashes and spaces only. Callers use it to keep an out-of-range
+// number an index error instead of silently falling back to a keyword or a
+// position in another list.
+func IsIndexExpr(q string) bool {
+	q = strings.TrimSpace(q)
+	if q == "" {
+		return false
+	}
+	for _, r := range q {
+		if (r < '0' || r > '9') && r != ',' && r != '-' && r != ' ' {
+			return false
+		}
+	}
+	return true
+}
+
 // Indices parses "2", "1,3" or "3-1" into one-based indexes within [1,n].
 // It reports false when the text is not an index expression at all, including
 // when it is out of range, so the caller falls through to keyword matching.
