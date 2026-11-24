@@ -1,0 +1,14 @@
+# build output
+/dist/
+/tmp-test/
+
+# local scratch
+*.part
+*.part.seg
+*.log
+
+# editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
