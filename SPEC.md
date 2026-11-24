@@ -2,7 +2,7 @@
 
 本文件是行为的唯一来源。改行为先改这里，再改代码，最后改 `MANUAL.md` / `MANUAL.en.md`（外置说明书）。
 
-版本：1.1.0
+版本：1.2.1
 
 ---
 
@@ -61,8 +61,10 @@ help,h  [command]   帮助总览 / 单个命令的帮助
 | `--sort` | | `name`\|`size`\|`quant`（默认 `name`） |
 | `--limit` | | 最多显示条数 |
 
-序号在过滤+排序之后编号，`get -f <序号>` 以同一规则解释——除非用户显式传了
-`--filter/--sort/--limit`，此时序号只在该视图内有效（帮助文本需提示这一点）。
+序号在默认视图内编号：只算 `.gguf`，按文件名排序。`--any` / `--filter` / `--sort` / `--limit`
+只改变 `list` 的显示，不改变序号的含义；`get -f <序号>` 按默认视图解释。
+看过滤/排序后的列表选文件时，应改用关键词或完整文件名（完整文件名可匹配任意文件）。
+帮助文本必须提示这一点。
 
 ## 4. `get` 选项
 
@@ -108,7 +110,7 @@ help,h  [command]   帮助总览 / 单个命令的帮助
 | `hf` | 同上，域名 `huggingface.co` | `https://huggingface.co/{repo}/resolve/{rev}/{path}` |
 
 - `auto`：按 `modelscope → hf-mirror → hf` 顺序探测（各 3 s 超时，并发），取第一个存在的。
-- 列表请求不带 revision → 拿默认分支；响应里的 `sha`（ModelScope 是 `Files[].Revision`）作为下载用的 `rev`。
+- 列表请求不带 revision → 用默认分支（ModelScope 固定 `master`）；响应里的 `sha`（ModelScope 是 `Files[].Revision`）作为下载用的 `rev`。
 - 两个镜像都支持 `resolve/<commit-sha>/<path>`（已实测 206）。
 - `search` 只走 HF 接口：`GET {endpoint}/api/models?search=<q>&limit=<n>`。
 
@@ -121,7 +123,7 @@ help,h  [command]   帮助总览 / 单个命令的帮助
 3. 配置 `models_dir`
 4. LM Studio `settings.json` 的 `downloadsFolder`（三平台均为 `~/.lmstudio/settings.json`）
 5. `~/.lmstudio/models`
-6. 都没有 → 报错并提示 `--out`
+6. 都没有 → 回退到 `~/.lmstudio/models`（不存在时在下载阶段创建）；只有连用户主目录都取不到才报错并提示 `--out`
 
 落盘布局由 `--layout`（或配置 `layout`、`GGUFGET_LAYOUT`）决定，默认 `lmstudio`：
 
@@ -148,7 +150,7 @@ flat:
 ## 7. 校验策略
 
 - 大小永远比对。
-- `--verify auto`（默认）：**满足任一条件才算 SHA256** —— 目标 ≤ 4 GiB、本次发生过续传或重试、或镜像没给 SHA256 之外的情形下无值可算。
+- `--verify auto`（默认）：**满足任一条件才算 SHA256** —— 目标 ≤ 4 GiB，或本次发生过续传/重试；镜像没给 SHA256 时跳过哈希（`--verify sha256` 下则直接报错）。
 - `--verify size`：只比大小。
 - `--verify sha256`：强制算，缺期望值时只报告实际值并失败（提示用 `--sha256`）。
 - `--verify off`：都不算（仍比大小，大小是下载器自身的正确性判据）。
@@ -172,10 +174,10 @@ flat:
 
 - **stdout**：结果（列表、计划、最终路径、`--json` 事件）。
 - **stderr**：进度与错误。
-- TTY：单行动画，`\r` 覆盖；宽度 < 60 用紧凑布局；不支持 ANSI 时用 `#`/`.` 进度条。
+- TTY：单行动画，`\r` 覆盖；进度条宽度随终端收缩（最少 8 格）；不支持 ANSI 时用 `#`/`.` 进度条。
 - 非 TTY：每 10 s 一行，结束一行总结；无 `\r`、无 ANSI。
-- `--json`：每行一个对象，`event` ∈ `start|progress|done|error|saved|plan|list`。
-  字段：`file,index,count,total,done,speed,conns,elapsed,path,error`。
+- `--json`：每行一个对象，`event` ∈ `start|progress|done|error|resume|retry|ratelimit|verify|saved|plan|file|info|config|repo`。
+  常见字段：`file,index,count,total,done,speed,conns,elapsed,path,error,repo,size,quant`。
 
 ## 10. 配置
 
@@ -203,11 +205,14 @@ flat:
 }
 ```
 
-`history`（TAB 补全用，最多 200 条）与 `speeds`/`speeds_at`（启动时显示的镜像速度，单位 MiB/s）
+`history`（TAB 补全用，配置里最多保留 50 条）与 `speeds`/`speeds_at`（启动时显示的镜像速度，单位 MiB/s）
 由交互式界面写入，手改无害。`lang` 取 `zh`/`en`/`fr`/`es`/`ru`，空 = 跟随系统区域设置。
 
 优先级：**命令行 > 环境变量 > 配置文件 > 内置默认**。
-环境变量：`GGUFGET_*`（同上键名大写）、`HF_TOKEN`、`HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY`、`NO_COLOR`、`COLUMNS`。
+环境变量：`GGUFGET_CONFIG`、`GGUFGET_PROVIDER`、`GGUFGET_HF_ENDPOINT`、`GGUFGET_MS_ENDPOINT`、
+`GGUFGET_MODELS_DIR`、`GGUFGET_LAYOUT`、`GGUFGET_CONNECTIONS`、`GGUFGET_JOBS`、`GGUFGET_RETRIES`、
+`GGUFGET_TIMEOUT`、`GGUFGET_VERIFY`、`GGUFGET_LANG`、`GGUFGET_LOG`、`GGUFGET_LOG_LEVEL`、
+`GGUFGET_TOKEN`、`HF_TOKEN`、`HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY`、`NO_COLOR`、`COLUMNS`。
 配置文件损坏 → stderr 告警 + 用默认值，不退出。
 
 ## 11. 下载引擎
@@ -218,13 +223,13 @@ flat:
    状态写 `.part.seg`（`{version,total,etag,segments:[{start,length,done}]}`），每 2 s 或每段完成时落盘。
    续传：`.part.seg` 与探测结果的 `total`/`etag` 一致才续；否则从头。
 4. 单连接：`.part` 大小即进度，直接 `Range: bytes=<size>-`。
-5. 服务端忽略 Range 返回 200 → 截断重下，打印说明。
-6. `416` → 视为已完整，走校验。
+5. 服务端忽略 Range 返回 200 → 单连接模式截断从头重下；分段模式报错重试。
+6. `416` → 分段模式视为该段已完成；单连接模式在 `.part` 已达总大小时视为完成，否则按未完成重试。
 7. 重试：`--retries` 次，退避 `500ms * 2^n` + 抖动（上限 30 s），尊重 `Retry-After`。
 8. 429/503：读 `Retry-After`（缺省 5 s），并把本文件连接数减半重试（最低 1）。
 9. ETag 中途变化 → 放弃 `.part` 从头。
 10. 连接空闲 15 s 无字节 → 断线重连该段。
-11. 磁盘预检：需要 `total * 1.05 + 16 MiB`，不足则退出码 5（不开始）。
+11. 磁盘预检：需要 `total - 已有 + 64 MiB`，不足则退出码 5（不开始）。
 
 ## 12. 交互式界面（无参数）
 
@@ -244,7 +249,7 @@ flat:
 - 输入键（`1`、`q`）或选项文字（`下载模型` / `download`）都能选中，不区分大小写。
 - `h` 在菜单内打开帮助，`q` 退出当前层；空行等价于返回。
 - 输入行支持行编辑：←/→/Home/End、Backspace/Delete、Ctrl+A/E/K/U/W；↑/↓ 翻历史。
-- `TAB` 补全：仓库 id 的历史、命令名、`--layout`/`--provider`/语言的值、当前层的选项键。
+- `TAB` 补全：仓库 id 的历史（`history` / `favorites`）。
 - Ctrl+C 立即中断并回到上一层（下载中为取消，退出码 130）。
 - 语言在设置里切换后立即生效并写回配置。
 - 非 TTY（管道/重定向）时退化为按行读取，不进入 raw 模式。
@@ -256,20 +261,21 @@ flat:
 - `ggufget help` / `ggufget h` / `ggufget --help`：命令总表（每条一行说明）、全局选项、
   三条上手提示、退出码、外部说明书的位置；在交互式界面里用内置分页器。
 - `ggufget help <命令>`：该命令的用法、全部选项、3 个示例、相关退出码。
-- 说明书是**外置文档**：`MANUAL.md` / `MANUAL.en.md`，随发行包提供；
+- 说明书是**外置文档**：`MANUAL.md` / `MANUAL.en.md`，随源码仓库提供；
   程序只打印它的位置（exe 同目录 → exe/docs → 当前目录），不把长文编译进二进制。
 - 选项拼错：Levenshtein ≤ 2 时提示 `你是不是想输入 --xxx ?`
 
 ## 14. 日志
 
-- 默认开启；路径优先级：`--log <路径>` > `GGUFGET_LOG` > 配置 `log` >
+- 默认开启；路径优先级：`--log <路径>` > `GGUFGET_LOG` >
   `<exe 目录>/ggufget.log` > `<用户缓存>/ggufget/logs/ggufget.log` > `<临时目录>/ggufget.log`。
+  配置文件的 `log` 字段当前不参与路径解析（见 §15）。
   全部失败不阻断运行，只在 stderr 逐条打印失败路径。
 - 级别：`error` / `warn` / `info`（默认）/ `debug`；`--verbose` 把本次抬到 `debug`。
 - 行格式：`<RFC3339 毫秒带时区> <LEVEL> <message>`，消息内换行替换为 ` | `。
 - 单文件超过 4 MiB 轮转一次为 `<名称>.1`（旧的被覆盖）。
 - 必须记录：启动（版本/系统/架构/pid/可执行文件/工作目录/脱敏后的 argv）、
-  配置（路径、各项生效值、来源告警）、模型目录的来源判断、`layout`、每个落盘绝对路径、
+  配置（路径、各项生效值、来源告警）、模型目录的生效值与相关来源参数（`--out` / 配置 / LM Studio 设置）、`layout`、每个落盘绝对路径、
   每次网络探测（URL/状态码/总大小/ETag/是否支持分段）、`mkdir` 等文件系统失败的
   完整错误链与 errno 数值、续传与 journal 命中的原因、重试与限流、校验结果、退出码。
 - 命令失败时终端额外打印一行 `日志：<实际路径>`；`doctor` 显示日志路径与
@@ -281,3 +287,11 @@ flat:
   `<exe 目录>/ggufget.config.json`（便携配置），终端提示"已改写到 <路径>"，并在
   下次启动时优先使用该便携文件；`--config <路径>` 或 `GGUFGET_CONFIG` 显式指定的位置
   不可写时只报错，不再换位置。`doctor` 的"配置文件"行显示实际生效路径与其可写性。
+
+## 15. 已知实现差异（v1.2.1）
+
+以下三点是当前代码与早期文档/预期的差距。代码将在后续版本修正；本版文档按**实际行为**描述，避免让人对着文档排查一个不存在的行为。
+
+1. `get` 的 `-f` 序号按默认视图（§3），不随 `--any` / `--filter` / `--sort` / `--limit` 变化；`list` 底部的 `-f <序号>` 提示也尚未标注这一点。
+2. 配置文件的 `log` 字段未参与日志路径解析（§14）；`log_level` 正常生效。
+3. `ggufget doctor` 每个镜像实际取样 4 MiB，但 `doctor` 文案写作 8 MiB；`docs/bench.md` 与代码一致为 4 MiB。

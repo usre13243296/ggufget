@@ -1,14 +1,26 @@
 # ggufget 使用说明书
 
-ggufget 把 GGUF 模型从镜像站下载到 LM Studio 的模型目录，下完就能在
-My Models 里看到它。它只有一个可执行文件，不需要 Python、不需要 pip、
-不需要改 hosts。
+ggufget 把 GGUF 模型从镜像站下载到 LM Studio 的模型目录，下完就能在 My Models 里看到它。它只有一个可执行文件，不需要 Python、不需要 pip、不需要改 hosts。
 
-## intro 它解决什么问题
+## 目录
 
-LM Studio 默认通过它自己的云代理下载模型（`search.lmstudio.ai/v1/hf-proxy`）。
-在国内这条链路非常慢 —— 实测每秒只有几 KB，一个 7 GB 的模型要下好几天，
-而且大文件经常中断。
+- [它解决什么问题](#它解决什么问题)
+- [安装](#安装)
+- [交互式界面](#交互式界面)
+- [镜像](#镜像)
+- [选择文件](#选择文件)
+- [下载](#下载)
+- [校验](#校验)
+- [日志](#日志)
+- [配置文件](#配置文件)
+- [与 LM Studio 配合](#与-lm-studio-配合)
+- [退出码](#退出码)
+- [常见问题](#常见问题)
+- [其它问题](#其它问题)
+
+## 它解决什么问题
+
+LM Studio 默认通过它自己的云代理下载模型（`search.lmstudio.ai/v1/hf-proxy`）。在国内这条链路非常慢——实测每秒只有几 KB，一个 7 GB 的模型要下好几天，而且大文件经常中断。
 
 ggufget 换了一条路：
 
@@ -16,9 +28,9 @@ ggufget 换了一条路：
 2. 用多连接分段 + Range 断点续传下载，中断了再跑一次会接着下；
 3. 下完按 LM Studio 的目录约定摆好：`<模型目录>/<文件名去扩展名>/lmstudio-ai/<文件>.gguf`。
 
-它不碰 `hosts`，不装驱动，不改系统设置，所以安全软件不会拦它。
+它不碰 `hosts`，不装驱动，不改系统设置，也不需要管理员权限。
 
-## install 安装
+## 安装
 
 Windows（PowerShell 5.1 或 7 都行）：
 
@@ -32,8 +44,9 @@ Linux / macOS：
 curl -fsSL https://raw.githubusercontent.com/usre13243296/ggufget/main/install/install.sh | sh
 ```
 
-安装器会做四件事：识别系统架构 → 下载对应单文件 → 校验 SHA256 →
-放到 PATH 里。也可以用源码编译（需要 Go 1.24+）：
+安装器会做四件事：识别系统架构 → 下载对应单文件 → 校验 SHA256 → 安装（并尽量加进 PATH）。Windows 会自动加入用户 PATH；Linux/macOS 若安装目录不在 PATH，会打印需要添加的一行。装到用户目录，不需要管理员权限。
+
+也可以从源码编译（需要 Go 1.24+，无第三方依赖）：
 
 ```sh
 git clone https://github.com/usre13243296/ggufget
@@ -41,22 +54,26 @@ cd ggufget
 make build
 ```
 
+Windows 上产物是 `dist/ggufget`（不带 `.exe`），需要的话自行重命名；要六平台发行包用 `make dist`。
+
 升级就重跑一次安装器（同版本会跳过，`-Force` 可强制重装）。
 
-## shell 交互式界面
+支持 Windows / Linux / macOS × amd64 / arm64 六个平台，都是单文件、无运行时依赖。
+
+## 交互式界面
 
 不带参数运行 `ggufget`（或双击 exe）就进入交互式界面。启动时先打印状态：
 
-```
+```text
 ggufget 1.2.1
 模型目录  C:\Users\you\.lmstudio\models
-镜像      modelscope 8.5 MiB/s  ·  hf-mirror 0.7 MiB/s
+镜像      modelscope 8.1 MiB/s  ·  hf-mirror 0.7 MiB/s
 [1] 下载模型   [2] 搜索仓库   [3] 测速   [4] 设置   [h] 帮助   [q] 退出
 ```
 
-速度是上次测速的结果；还没测过就显示「按 [3] 测一下」。
+速度是上次测速的结果；还没测过就显示「未测速（在菜单里按 3 测一次）」。
 
-```
+```text
 [1] 下载模型    输入仓库 → 列出文件 → 填序号/关键词 → 看计划 → 确认
 [2] 搜索仓库    关键词 → 编号列表 → 选一个 → 同上
 [3] 测速        串行测三个镜像，数字写回配置，下次启动直接显示
@@ -70,8 +87,8 @@ ggufget 1.2.1
 | 键 | 作用 |
 |---|---|
 | `1`..`4`、`h`、`q` | 选菜单项；也可以直接输入选项文字（`下载模型` / `download`） |
-| `TAB` | 补全：仓库历史、命令名、语言/布局/镜像的取值、当前层选项键 |
-| `↑` `↓` | 翻输入历史（最多 200 条，存在配置里） |
+| `TAB` | 补全：历史里的仓库 id（`history` / `favorites`） |
+| `↑` `↓` | 翻输入历史（本次最多 200 条；写回配置时保留最近 50 条） |
 | `←` `→` `Home` `End` | 行内移动光标 |
 | `Backspace` `Delete` | 删除字符 |
 | `Ctrl+A` / `Ctrl+E` | 跳到行首 / 行尾 |
@@ -90,19 +107,18 @@ ggufget 1.2.1
 
 - 菜单里按 `h`，或命令行 `ggufget help`：全部命令 + 一句话说明 + 全局选项 + 退出码。
 - `ggufget help get`：单个命令的全部选项和示例。
-- 长篇说明就是本文档：程序会在当前目录、exe 同目录、`exe/docs` 里找 `MANUAL.md`，找到就把路径告诉你；**长文不编译进二进制**。
+- 长篇说明就是本文档：程序会在 exe 同目录、`exe/docs`、当前目录里找 `MANUAL.md`，找到就把路径告诉你；**长文不编译进二进制**。
 - 管道或重定向时界面自动退化成逐行提问，不进入 raw 模式。
 
-## providers 镜像
+## 镜像
 
 | 名称 | 地址 | 说明 |
 | --- | --- | --- |
-| `modelscope` | modelscope.cn | 国内直连最快，实测约 8.5 MB/s |
+| `modelscope` | modelscope.cn | 国内直连通常最快，实测最高约 8.5 MB/s |
 | `hf-mirror` | hf-mirror.com | Hugging Face 的完整镜像，覆盖最全 |
-| `hf` | huggingface.co | 官方源，需要代理 |
+| `hf` | huggingface.co | 官方源，通常需要代理 |
 
-默认 `--provider auto`：三个源同时探测，谁先给出文件列表就用谁，顺序是
-modelscope → hf-mirror → hf。想固定一个源：
+默认 `--provider auto`：三个源同时探测，按 `modelscope → hf-mirror → hf` 的优先级，取第一个**真的能列出文件**的。它选的是“可用”，不是“最快”；想知道当前网络下谁快，跑 `ggufget doctor`，再手动钉一个源：
 
 ```sh
 ggufget get owner/repo -f 1 -p modelscope
@@ -114,10 +130,9 @@ ggufget get owner/repo -f 1 -p modelscope
 { "provider": "modelscope" }
 ```
 
-注意：ModelScope 只镜像了一部分模型。如果它上面没有这个仓库，auto 会自动
-落到 hf-mirror。
+注意：ModelScope 只镜像了一部分模型。如果它上面没有这个仓库，auto 会落到 hf-mirror；hf-mirror 只镜像文件，`/api/models` 会 308 跳回 huggingface.co，所以走 hf-mirror 的列表请求也可能需要能访问 hf.co。连不上时用 `--proxy`，或 `-p hf`。
 
-## select 怎么选文件
+## 选择文件
 
 先看清单：
 
@@ -125,7 +140,7 @@ ggufget get owner/repo -f 1 -p modelscope
 ggufget list lmstudio-community/Qwen2.5-7B-Instruct-GGUF
 ```
 
-```
+```text
 [modelscope] 共 4 个 gguf，合计 21.5 GiB（其余文件用 --any 查看）
 序号  文件                                    大小        量化
 ----  --------------------------------------  ----------  --------
@@ -137,15 +152,18 @@ ggufget list lmstudio-community/Qwen2.5-7B-Instruct-GGUF
 
 `-f` 接受四种写法，可以对同一个仓库重复用：
 
-- 序号：`-f 2`、`-f 1,3`、`-f 1-3`
+- 序号：`-f 2`、`-f 1,3`、`-f 1-3`（反向 `3-1` 会自动纠正）
 - 文件名片段：`-f q4_k`、`-f q6`
 - 完整文件名：`-f Qwen2.5-7B-Instruct-Q4_K_M.gguf`
 - 全下：`-a`
 
-片段匹配不分大小写；一个片段命中多个文件时不会瞎猜，而是把候选列出来让你
-写具体些。`ggufget list --filter q4 --sort size` 可以先缩小清单再选序号。
+**序号规则（重要）**：`-f` 的序号按**默认视图**解释——只算 `.gguf`、按文件名排序。`list` 的 `--any` / `--filter` / `--sort` / `--limit` 只改变显示，不改变 `-f` 的解释。如果你看的是过滤或排序后的列表，请改用关键词或完整文件名，别用序号。
 
-## download 下载
+片段匹配不分大小写；一个片段命中多个文件时不会瞎猜，而是把候选列出来让你写具体些。`ggufget list --filter q4 --sort size` 可以先缩小清单再选，但选的时候请用关键词或完整文件名。
+
+输入会自动清理：去掉首尾空格与引号（含中文引号）、剥掉 `--file=` / `-f ` / `文件名:` 之类前缀、`\` 归一为 `/`。
+
+## 下载
 
 ```sh
 ggufget get owner/repo -f 2
@@ -163,18 +181,25 @@ ggufget get owner/repo -f 2
 | `--layout` | 目录布局：`lmstudio`（默认）、`repo`、`flat` |
 | `--no-lmstudio` | 等于 `--layout flat`，直接放进目标目录 |
 | `--overwrite` | 覆盖已存在的同名文件 |
+| `--keep-part` | 兼容参数；`.part` 默认就会保留 |
+| `-b, --rev` | 钉住分支或 commit（默认用列文件时拿到的 commit） |
+| `--retries` | 失败重试次数（默认 3） |
+| `--token` | 访问令牌（也可用 `HF_TOKEN`） |
+| `--json` | NDJSON 事件流，适合脚本 |
+| `--sha256` | 手工指定期望的 SHA256（只能配单个文件） |
 
 下载逻辑：
 
 - 先发 `Range: bytes=0-0` 探一次，确认服务器支持分段和文件总大小；
-- 大文件切成若干段并行下载，每 2 秒把进度写进 `<文件名>.part.seg`；
-- 断网、超时、429 限速都会自动退避重试，重试过的文件一定会做 SHA256 校验；
-- 全部写完才把 `.part` 改名成正式文件，所以你不会看到一个半截的 `.gguf`。
+- 文件 ≥ 64 MiB、服务端支持 Range 且连接数 ≥ 2 时，切成若干段并行下载，每 2 秒把进度写进 `<文件名>.part.seg`；
+- 断网、超时、429/503 都会自动退避重试；分段模式下 429/503 还会把连接数减半；
+- 连接 15 秒没有新字节就重连该段，避免半开连接看起来像“很慢”；
+- 服务端忽略 Range 返回 200 时，单连接模式会从头重下；
+- 全部写完、校验通过才把 `.part` 改名成正式文件，所以你不会看到一个半截的 `.gguf`。
 
-中途 Ctrl+C 是安全的：已经下好的部分留在 `.part` 里，再跑同一条命令会
-接着下。
+中途 Ctrl+C 是安全的：已经下好的部分留在 `.part` 里，再跑同一条命令会接着下。下载前会检查剩余空间，需要 `总大小 - 已有 + 64 MiB`，不足直接以退出码 5 结束。
 
-## verify 校验
+## 校验
 
 ```sh
 ggufget get owner/repo -f 1 --verify sha256
@@ -182,19 +207,24 @@ ggufget get owner/repo -f 1 --verify sha256
 
 `--verify` 四档：
 
-- `auto`（默认）：小于 4 GiB 的文件，或者这次下载发生过续传/重试，才校验
-  SHA256；镜像没给 hash 就只比大小。
-- `size`：只比大小，最快。
-- `sha256`：强制校验，镜像没给 hash 就报错退出（退出码 4）。
-- `off`：什么都不查。
+| 值 | 行为 |
+| --- | --- |
+| `auto`（默认） | 镜像给了 SHA256，且文件 ≤ 4 GiB 或这次续传/重试过时校验；否则只比大小 |
+| `size` | 只比大小，最快 |
+| `sha256` | 强制校验，镜像没给 hash 就报错退出（退出码 4） |
+| `off` | 什么都不查（仍比大小） |
 
-校验不通过时，坏文件会被删掉，然后你可以直接重跑。想手工指定期望值：
+`auto` 的设计理由：大文件首次下载已经有总大小、ETag、分段完整性三层保护，全量哈希要多读一遍 7 GB；但一旦这次下载经历过中断或重试，风险变了，就值得花那几分钟。
+
+校验不通过时，哈希不符会删掉坏文件（`.part`），然后你可以直接重跑；如果是下载后大小不符，`.part` 会保留，重跑可续传。想手工指定期望值：
 
 ```sh
 ggufget get owner/repo -f 1 --sha256 3f9a...
 ```
 
-## log 日志
+哈希来源：Hugging Face 的 `siblings[].lfs.sha256`，或 ModelScope 的 `Files[].Sha256`。
+
+## 日志
 
 日志默认就开着，写在**程序旁边**：
 
@@ -203,11 +233,10 @@ ggufget get owner/repo -f 1
 # 出错时终端会多一行：日志：D:\tools\ggufget\ggufget.log
 ```
 
-想让程序把一个"看不出来的失败"说清楚（`Access is denied`、镜像返回奇怪状态码、
-续传后大小不对），先看这个文件——它记的是终端上不会显示的东西：
+想让程序把一个“看不出来的失败”说清楚（`Access is denied`、镜像返回奇怪状态码、续传后大小不对），先看这个文件——它记的是终端上不会显示的东西：
 
 - 启动环境：版本、系统、进程号、完整命令行（token 自动打码）、工作目录
-- 配置：用的是哪个配置文件、每一项的生效值、模型目录是从哪一级来的
+- 配置：用的是哪个配置文件、每一项的生效值、模型目录的生效值
 - 每个文件要写到哪个绝对路径、多大、期望的 SHA256
 - 每次网络探测：URL、HTTP 状态码、真实总大小、ETag、镜像是否支持分段
 - 失败时的完整错误链和 `errno` 数值（`Access is denied` 是 `errno=5`）
@@ -221,63 +250,19 @@ ggufget get owner/repo -f 1 --log-level debug   # error|warn|info|debug，默认
 ggufget get owner/repo -f 1 --no-log            # 这次不写
 ```
 
-也可以用环境变量 `GGUFGET_LOG`、`GGUFGET_LOG_LEVEL`，或配置里的 `log` / `log_level`。
-`--verbose` 会把级别临时抬到 `debug`。
+也可以用环境变量 `GGUFGET_LOG`、`GGUFGET_LOG_LEVEL`，或配置里的 `log_level`（`log` 路径字段当前未生效，见 SPEC §15）。`--verbose` 会把级别临时抬到 `debug`。
 
-写不进程序目录时（只读介质、装在 `Program Files` 又没权限），会自动退到用户缓存目录
-（Windows `%LOCALAPPDATA%\ggufget\logs\`，Linux `~/.cache/ggufget/logs/`），再退到临时目录；
-三处都写不成时不阻断运行，只在终端告诉你哪几处失败了。
+写不进程序目录时（只读介质、装在 `Program Files` 又没权限），会自动退到用户缓存目录（Windows `%LOCALAPPDATA%\ggufget\logs\`，Linux `~/.cache/ggufget/logs/`），再退到临时目录；三处都写不成时不阻断运行，只在终端告诉你哪几处失败了。
 
 文件超过 4 MiB 会轮转一次，旧的叫 `ggufget.log.1`。
 
 ### 配置文件写不进去时
 
-配置默认存在用户配置目录（Windows `%APPDATA%\ggufget\config.json`）。如果这个位置建不了目录
-——常见于安全软件拦截未签名程序写用户目录、或域策略锁了漫游配置——程序不会丢设置：
-它会退一步写到**程序旁边的 `ggufget.config.json`**，终端提示"已改写到 …"，下次启动自动用这个
-便携配置。想显式指定位置就用 `--config <路径>`；指定了还写不进去，就只报错，不再偷偷换地方。
+配置默认存在用户配置目录（Windows `%APPDATA%\ggufget\config.json`）。如果这个位置建不了目录——常见于安全软件拦截未签名程序写用户目录、或域策略锁了漫游配置——程序不会丢设置：它会退一步写到**程序旁边的 `ggufget.config.json`**，终端提示“已改写到 …”，下次启动自动用这个便携配置。想显式指定位置就用 `--config <路径>`；指定了还写不进去，就只报错，不再偷偷换地方。
 
-`ggufget doctor` 里"配置文件"一行显示的是**当前生效的那个路径**和它所在目录能不能写。
+`ggufget doctor` 里“配置文件”一行显示的是**当前生效的那个路径**和它所在目录能不能写。
 
-`ggufget doctor` 会显示当前日志路径和"可写/写不进去"，以及模型目录的写入测试结果。
-
-## lmstudio 和 LM Studio 配合
-
-LM Studio 认这个布局：
-
-```
-<模型目录>/<文件名去扩展名>/
-└── lmstudio-ai/
-    └── <文件名>.gguf
-```
-
-所以 ggufget 默认就按这个写。例如下载
-`DeepSeek-Coder-V2-Lite-Instruct-IQ2_S.gguf`，文件会落在
-`<模型目录>/DeepSeek-Coder-V2-Lite-Instruct-IQ2_S/lmstudio-ai/` 下面。
-这两层目录由 ggufget 自动创建，不需要你手动建。
-
-想换摆法用 `--layout`：
-
-- `lmstudio`（默认）：`<文件名去扩展名>/lmstudio-ai/<文件>.gguf`
-- `repo`：`<发布者>/<仓库>/<文件>.gguf`
-- `flat`：直接放进目标目录，不建子目录（`--no-lmstudio` 等价于此）
-
-布局的默认值也可以写进配置文件的 `layout` 字段，或者用环境变量
-`GGUFGET_LAYOUT` 覆盖。
-
-模型目录按下面的顺序找：
-
-1. `--out`
-2. 环境变量 `GGUFGET_MODELS_DIR`
-3. 配置文件里的 `models_dir`
-4. LM Studio 自己的 `~/.lmstudio/settings.json` 里的 `downloadsFolder`
-5. `~/.lmstudio/models`
-
-下载完成后，如果本机有 `lms` 命令，ggufget 会问一次索引，告诉你模型已经
-出现在 My Models 里。没看到模型时，在 LM Studio 里按一下刷新，或者用
-`ggufget doctor` 确认模型目录有没有指对。
-
-## config 配置
+## 配置文件
 
 先看清楚当前生效的是什么，再决定改什么：
 
@@ -292,8 +277,7 @@ ggufget config --init   # 写出默认配置文件（已存在则不动，不会
 - Windows：`%APPDATA%\ggufget\config.json`
 - Linux / macOS：`~/.config/ggufget/config.json`
 
-也可以用 `GGUFGET_CONFIG` 指定别的位置，或用 `--config <路径>` 单次覆盖。
-文件不存在时按默认值运行，所以不写配置也能直接用。
+也可以用 `GGUFGET_CONFIG` 指定别的位置，或用 `--config <路径>` 单次覆盖。文件不存在时按默认值运行，所以不写配置也能直接用。
 
 所有字段都可省略：
 
@@ -317,11 +301,39 @@ ggufget config --init   # 写出默认配置文件（已存在则不动，不会
 
 `connections` 和 `jobs` 写 `0` 表示自动（单文件 4 段、同时 1 个文件）。
 
-环境变量会覆盖配置文件：`GGUFGET_PROVIDER`、`GGUFGET_MODELS_DIR`、
-`GGUFGET_LAYOUT`、`GGUFGET_HF_ENDPOINT`、`GGUFGET_TIMEOUT`、`GGUFGET_PROXY`、
-`GGUFGET_LANG`，以及 HF 的 `HF_TOKEN`。`NO_COLOR=1` 关掉颜色。
+环境变量会覆盖配置文件：`GGUFGET_PROVIDER`、`GGUFGET_HF_ENDPOINT`、`GGUFGET_MS_ENDPOINT`、`GGUFGET_MODELS_DIR`、`GGUFGET_LAYOUT`、`GGUFGET_CONNECTIONS`、`GGUFGET_JOBS`、`GGUFGET_RETRIES`、`GGUFGET_TIMEOUT`、`GGUFGET_VERIFY`、`GGUFGET_LANG`、`GGUFGET_LOG`、`GGUFGET_LOG_LEVEL`、`GGUFGET_TOKEN`，以及 `HF_TOKEN`、`HTTPS_PROXY` / `HTTP_PROXY`。`NO_COLOR=1` 关掉颜色。优先级是：**命令行 > 环境变量 > 配置文件 > 默认值**。
 
-## exit-codes 退出码
+## 与 LM Studio 配合
+
+LM Studio 认这个布局：
+
+```text
+<模型目录>/<文件名去扩展名>/
+└── lmstudio-ai/
+    └── <文件名>.gguf
+```
+
+所以 ggufget 默认就按这个写。例如下载 `DeepSeek-Coder-V2-Lite-Instruct-IQ2_S.gguf`，文件会落在 `<模型目录>/DeepSeek-Coder-V2-Lite-Instruct-IQ2_S/lmstudio-ai/` 下面。这两层目录由 ggufget 自动创建，不需要你手动建。
+
+想换摆法用 `--layout`：
+
+- `lmstudio`（默认）：`<文件名去扩展名>/lmstudio-ai/<文件>.gguf`
+- `repo`：`<发布者>/<仓库>/<文件>.gguf`
+- `flat`：直接放进目标目录，不建子目录（`--no-lmstudio` 等价于此）
+
+布局的默认值也可以写进配置文件的 `layout` 字段，或者用环境变量 `GGUFGET_LAYOUT` 覆盖。
+
+模型目录按下面的顺序找：
+
+1. `--out`
+2. 环境变量 `GGUFGET_MODELS_DIR`
+3. 配置文件里的 `models_dir`
+4. LM Studio 自己的 `~/.lmstudio/settings.json` 里的 `downloadsFolder`
+5. `~/.lmstudio/models`（不存在会在下载时创建）
+
+下载完成后，如果本机有 `lms` 命令，ggufget 会问一次索引，告诉你模型已经出现在 My Models 里。没看到模型时，在 LM Studio 里按一下刷新，或者用 `ggufget doctor` 确认模型目录有没有指对。
+
+## 退出码
 
 | 码 | 含义 |
 | --- | --- |
@@ -335,46 +347,36 @@ ggufget config --init   # 写出默认配置文件（已存在则不动，不会
 | 7 | 没有写入权限 |
 | 130 | 被 Ctrl+C 中断 |
 
-脚本里判断 `if [ $? -eq 5 ]` 就能区分"该清理磁盘"和"该换镜像"。
+脚本里判断 `if [ $? -eq 5 ]` 就能区分“该清理磁盘”和“该换镜像”。
 
-## troubleshooting 常见问题
+## 常见问题
 
 **下到一半停了**：直接重跑同一条命令，会从 `.part` 续传。
 
-**速度只有几百 KB/s**：先 `ggufget doctor` 看三个镜像的实测速度；如果
-ModelScope 明显更快，用 `-p modelscope`。走代理时记得 `--proxy`。
+**速度只有几百 KB/s**：先 `ggufget doctor` 看三个镜像的实测速度；如果 ModelScope 明显更快，用 `-p modelscope`。走代理时记得 `--proxy`。
 
-**报 HTTP 404**：仓库名写错，或者这个仓库只存在于 Hugging Face。用
-`ggufget search <关键词>` 找准确 id。
+**报 HTTP 404**：仓库名写错，或者这个仓库只存在于 Hugging Face。用 `ggufget search <关键词>` 找准确 id。
 
 **报私有仓库**：需要 `--token`，或者设置 `HF_TOKEN`。
 
-**连配置都写不进去、连下载目录都建不了，但用资源管理器手动能建**：这种情况
-程序本身没问题，是它所在的目录被某个沙箱管住了。典型例子是把 exe 放在
-「代理/沙箱工作区」里运行——那类环境会把**放在该目录里的可执行文件**限制成
-只能写这个目录，于是 `%APPDATA%`、`~/.lmstudio/models` 全部 `Access is denied`，
-而资源管理器（另一个程序）却能建。把 exe 复制到普通目录（例如 `D:\tools\ggufget\`、
-桌面）再运行就好了；`ggufget doctor` 的「模型目录/配置文件」两行会直接显示
-`可写` 还是 `写不进去`，可以先跑它确认。
+**连配置都写不进去、连下载目录都建不了，但用资源管理器手动能建**：这种情况程序本身没问题，是它所在的目录被某个沙箱管住了。典型例子是把 exe 放在「代理/沙箱工作区」里运行——那类环境会把**放在该目录里的可执行文件**限制成只能写这个目录，于是 `%APPDATA%`、`~/.lmstudio/models` 全部 `Access is denied`，而资源管理器（另一个程序）却能建。把 exe 复制到普通目录（例如 `D:\tools\ggufget\`、桌面）再运行就好了；`ggufget doctor` 的「模型目录/配置文件」两行会直接显示 `可写` 还是 `写不进去`，可以先跑它确认。
 
-**下载完 LM Studio 看不到**：`ggufget doctor` 看模型目录是不是 LM Studio
-正在用的那个；`--no-lmstudio` 用过的话，文件会平铺在目录里，LM Studio
-不认。
+**下载完 LM Studio 看不到**：`ggufget doctor` 看模型目录是不是 LM Studio 正在用的那个；`--no-lmstudio` 用过的话，文件会平铺在目录里，LM Studio 不认。
 
-**杀软报毒**：单文件 Go 程序偶尔会被启发式误报；用 `--json` 或源码自己
-编译一份即可。
+**杀软报毒**：单文件 Go 程序偶尔会被启发式误报。用源码自己编译一份，或把程序加入信任区；`--json` 只是输出格式，不能消除误报。
 
-## faq 其它问题
+**代理怎么设**：`--proxy http://127.0.0.1:7890`，或设 `HTTPS_PROXY` / `HTTP_PROXY`。程序不会自动读系统代理设置。
 
-**会不会改 hosts 或系统设置？** 不会。全部行为都在模型目录里。
+## 其它问题
 
-**支持哪些系统？** Windows（x64/arm64）、Linux（x64/arm64）、macOS
-（x64/arm64），都是单文件，无运行时依赖。
+**会不会改 hosts 或系统设置？** 不会。全部行为都在模型目录和用户配置目录里。
 
-**能下非 gguf 文件吗？** `list --any` 能看到全部文件，`-f` 也认完整
-文件名。`-a` 只下 gguf。
+**支持哪些系统？** Windows（x64/arm64）、Linux（x64/arm64）、macOS（x64/arm64），都是单文件，无运行时依赖。
+
+**能下非 gguf 文件吗？** `list --any` 能看到全部文件，`-f` 也认完整文件名。`-a` 只下 gguf。
 
 **怎么把日志留档？** `--log ggufget.log`。
 
-**能放进计划任务里跑吗？** 能：`-y` 跳过确认，退出码区分失败原因，`--json`
-给出逐行事件。
+**能放进计划任务里跑吗？** 能：`-y` 跳过确认，退出码区分失败原因，`--json` 给出逐行事件。
+
+**为什么自动选镜像不选最快的？** 因为“最快”因网络、时段而异，程序只保证选到一个真的有这个仓库的；速度用 `doctor` 实测，再用 `--provider` 钉住。

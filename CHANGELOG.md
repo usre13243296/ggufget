@@ -4,6 +4,27 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Docs
+
+- README rewritten as a quick start: badges, table of contents, architecture
+  sketch, accurate mirror-selection wording, and an explicit warning that `-f`
+  indexes always follow the default view.
+- MANUAL.md and MANUAL.en.md restructured with tables of contents, English
+  anchor prefixes removed, and corrections for the 4 MiB doctor sample, the 15 s
+  idle timeout, the disk precheck, proxy setup and antivirus guidance.
+- SPEC.md updated to 1.2.1 and aligned with the implementation (disk precheck
+  `total - have + 64 MiB`, 416 and ignored-Range semantics, JSON event names,
+  log path precedence); a "known implementation gaps" section records the three
+  remaining code/documentation differences.
+- docs/verify.md corrected (journal version check, size-mismatch behaviour,
+  15 s idle timeout, segmentation condition); docs/bench.md gained a measurement
+  date, unit notes and the 4 MiB sample; docs/design-principles.md now lists all
+  five languages; docs/collaboration.md marks the git and release tasks as done;
+  docs/blog.md carries a date/version note.
+- Added docs/README.md as the documentation index and maintenance rules.
+
 ## [1.2.1] - 2026-11-24
 
 A settings save could fail silently: on a machine where the user config
@@ -88,8 +109,8 @@ roughly 5 KB/s from mainland China, which is 2.7 hours for a 7 GB model.
   description, the global options, three tips, the exit codes and where the
   manual file lives. `help <command>` keeps the per-command detail.
 - Line editing in every prompt: arrows, `Home`/`End`, `Backspace`/`Delete`,
-  `Ctrl+A/E/K/U/W`, `↑`/`↓` history, and `TAB` completion for repo ids, command
-  names, language/layout/mirror values and menu keys.
+  `Ctrl+A/E/K/U/W`, `↑`/`↓` history, and `TAB` completion for recent repository
+  ids.
 - Interface languages: 中文 / English / Français / Español / Русский, switchable
   in settings, via `--lang`, or via `GGUFGET_LANG`; the test suite fails if any
   language is missing a key or drops a format verb.
