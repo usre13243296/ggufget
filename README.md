@@ -34,7 +34,7 @@ $ ggufget get  lmstudio-community/Qwen2.5-7B-Instruct-GGUF -f 2
 | hf-mirror.com | 0.13 – 3.4 MiB/s | 覆盖最全，速度随网络波动 |
 | ModelScope | 最高 8.5 MB/s（约 8.1 MiB/s） | 快，但模型覆盖不全 |
 
-同一台机器、同一时间段实测，最快与最慢相差三个数量级。数字会变：**以你自己机器上的 `ggufget doctor` 为准**（1 MiB/s = 1.05 MB/s）。
+同一台机器上的实测中，最快与最慢相差三个数量级（单机单次，非同时测量）。数字会变：**以你自己机器上的 `ggufget doctor` 为准**（1 MiB/s = 1.05 MB/s）。
 
 `ggufget` 不去猜“哪个最快”，而是同时探测三个镜像，按 **ModelScope → hf-mirror → huggingface.co** 的优先级取第一个真的能列出文件的。速度排名由 `doctor` 串行实测后展示，不参与自动选择——同一台机器上，三者的快慢一天里能反过来。
 
